@@ -187,6 +187,13 @@ export default function ChatPage() {
     el.style.height = `${Math.min(Math.max(el.scrollHeight, 44), 200)}px`;
   };
 
+  const resetInputHeight = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = "44px";
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || sending) return;
     stopListening();
@@ -199,6 +206,7 @@ export default function ChatPage() {
     };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
+    resetInputHeight();
     setSending(true);
     try {
       const response = await fetch("/api/chat", {
@@ -288,13 +296,6 @@ export default function ChatPage() {
             ref={feedRef}
             className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto pr-1 scrollbar-hidden"
           >
-            {sending ? (
-              <div className="flex w-full justify-start">
-                <div className="max-w-[90%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-                  Assistant is preparing a response...
-                </div>
-              </div>
-            ) : null}
             {loading ? (
               <div className="text-sm text-slate-500">Loading chat...</div>
             ) : null}
@@ -358,6 +359,16 @@ export default function ChatPage() {
                 </div>
               </div>
             ))}
+            {sending ? (
+              <div className="flex w-full justify-start">
+                <div className="flex max-w-[90%] items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-sky-600" />
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-sky-600 delay-150" />
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-sky-600 delay-300" />
+                  <span className="text-slate-700">Assistant is preparing a response...</span>
+                </div>
+              </div>
+            ) : null}
           </div>
           <div className="flex flex-col gap-3 rounded-2xl bg-slate-50 p-3 sm:p-4 ring-1 ring-black/5">
             <div className="flex items-end gap-2 sm:gap-3">
@@ -401,7 +412,7 @@ export default function ChatPage() {
                 className="flex h-10 w-16 shrink-0 items-center justify-center rounded-xl bg-sky-700 text-xs font-semibold text-white transition hover:bg-sky-800 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:cursor-not-allowed disabled:opacity-70 sm:h-11 sm:w-24 sm:text-sm"
                 disabled={!input.trim() || sending}
               >
-                {sending ? "..." : "Send"}
+                {sending ? "Sending..." : "Send"}
               </button>
             </div>
           </div>

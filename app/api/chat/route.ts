@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionFromCookies } from "@/lib/session";
 import { listMessages, saveMessages, deleteMessages } from "@/lib/chat-store";
 
-const model = "gpt-4o-mini";
+const model = "gpt-5";
 const endpoint = "https://api.openai.com/v1/chat/completions";
 
 const systemPrompt = `
@@ -21,6 +21,43 @@ Return JSON only in this shape:
 }
 Keep language clear, calm, and avoid medical jargon when possible.
 `;
+
+const levenshtein = (a: string, b: string) => {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const dp = Array.from({ length: a.length + 1 }, () =>
+    new Array<number>(b.length + 1).fill(0)
+  );
+  for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1, // deletion
+        dp[i][j - 1] + 1, // insertion
+        dp[i - 1][j - 1] + cost // substitution
+      );
+    }
+  }
+  return dp[a.length][b.length];
+};
+
+const isMedicalLike = (text: string, hints: string[]) => {
+  const lower = text.toLowerCase();
+  if (hints.some((h) => lower.includes(h))) return true;
+
+  const tokens = lower.match(/[a-z]+/g) ?? [];
+  for (const token of tokens) {
+    for (const hint of hints) {
+      const distance = levenshtein(token, hint);
+      if (distance <= 1) return true;
+      if (hint.length >= 7 && distance <= 2) return true;
+    }
+  }
+  return false;
+};
 
 export async function GET() {
   const session = await getSessionFromCookies();
@@ -49,6 +86,7 @@ export async function POST(request: Request) {
     "med",
     "medicine",
     "medication",
+    "meds",
     "drug",
     "pill",
     "tablet",
@@ -68,11 +106,12 @@ export async function POST(request: Request) {
     "ibuprofen",
     "acetaminophen",
     "paracetamol",
+    "amoxicillin",
+    "metformin",
+    "atorvastatin",
   ];
 
-  const looksMedical = medicalHints.some((hint) =>
-    message.toLowerCase().includes(hint)
-  );
+  const looksMedical = isMedicalLike(message, medicalHints);
 
   if (!looksMedical) {
     const userEntry = {
@@ -118,7 +157,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         model,
-        temperature: 0.4,
+        temperature: 1,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message },
