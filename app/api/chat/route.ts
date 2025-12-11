@@ -20,6 +20,8 @@ Return JSON only in this shape:
   "doctorQuestion": string
 }
 Keep language clear, calm, and avoid medical jargon when possible.
+
+IMPORTANT: If the user mentions medication names (even if misspelled or unknown), try to interpret them and provide helpful information. If you cannot identify specific medications, provide general guidance about medication interactions and suggest consulting a doctor with the exact medication names. Always attempt to be helpful rather than dismissive.
 `;
 
 const levenshtein = (a: string, b: string) => {
@@ -83,35 +85,55 @@ export async function POST(request: Request) {
   }
 
   const medicalHints = [
-    "med",
-    "medicine",
-    "medication",
-    "meds",
-    "drug",
-    "pill",
-    "tablet",
-    "capsule",
-    "dose",
-    "dosing",
-    "mg",
-    "milligram",
-    "prescription",
-    "rx",
-    "insulin",
-    "antibiotic",
-    "blood pressure",
-    "statin",
-    "cholesterol",
-    "painkiller",
-    "ibuprofen",
-    "acetaminophen",
-    "paracetamol",
-    "amoxicillin",
-    "metformin",
-    "atorvastatin",
+    "med", "medicine", "medication", "meds", "medic", "medicin",
+    "drug", "drugs", "pill", "pills", "tablet", "tablets", "capsule", "capsules",
+    "dose", "dosing", "dosage", "mg", "milligram", "milligrams", "g", "gram", "grams",
+    "prescription", "prescribed", "rx", "take", "taking", "took",
+    "insulin", "antibiotic", "antibiotics", "blood pressure", "bp",
+    "statin", "statins", "cholesterol", "painkiller", "painkillers",
+    "ibuprofen", "acetaminophen", "paracetamol", "amoxicillin", "metformin",
+    "atorvastatin", "aspirin", "tylenol", "advil", "motrin", "naproxen",
+    "lisinopril", "amlodipine", "metoprolol", "omeprazole", "pantoprazole",
+    "simvastatin", "levothyroxine", "azithromycin", "amoxicillin", "prednisone",
+    "gabapentin", "tramadol", "hydrocodone", "oxycodone", "warfarin",
+    "clopidogrel", "furosemide", "losartan", "sertraline", "fluoxetine",
+    "interaction", "interactions", "side effect", "side effects", "symptom", "symptoms",
+    "doctor", "physician", "pharmacy", "pharmacist", "hospital", "clinic",
   ];
 
-  const looksMedical = isMedicalLike(message, medicalHints);
+  const hasMedicalPattern = (text: string): boolean => {
+    const lower = text.toLowerCase();
+    
+    if (medicalHints.some((h) => lower.includes(h))) return true;
+    
+    if (/\d+\s*(mg|g|milligram|gram|ml|milliliter)/i.test(text)) return true;
+    if (/\b(take|taking|took|prescribed|prescription)\b/i.test(text)) return true;
+    
+    const medicalSuffixes = /(in|ol|ide|ine|ate|azole|mycin|pril|statin|prazole)$/i;
+    const tokens = lower.match(/[a-z]{4,}/g) ?? [];
+    if (tokens.some((t) => medicalSuffixes.test(t))) return true;
+    
+    for (const token of tokens) {
+      for (const hint of medicalHints) {
+        const distance = levenshtein(token, hint);
+        const maxDistance = hint.length <= 4 ? 1 : hint.length <= 7 ? 2 : 3;
+        if (distance <= maxDistance) return true;
+      }
+    }
+    
+    if (text.length > 20) {
+      const capitalizedWords = text.match(/\b[A-Z][a-z]{3,}\b/g) ?? [];
+      if (capitalizedWords.length > 0) return true;
+      
+      const commonWords = new Set(["this", "that", "with", "from", "have", "been", "will", "would", "could", "should", "what", "when", "where", "which", "about"]);
+      const potentialMedNames = tokens.filter(t => t.length >= 4 && !commonWords.has(t));
+      if (potentialMedNames.length >= 2) return true;
+    }
+    
+    return false;
+  };
+
+  const looksMedical = hasMedicalPattern(message);
 
   if (!looksMedical) {
     const userEntry = {
