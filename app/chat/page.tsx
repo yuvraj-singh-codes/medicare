@@ -39,6 +39,7 @@ export default function ChatPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const recognitionRef = useRef<any>(null);
   const feedRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -54,6 +55,12 @@ export default function ChatPage() {
   useEffect(() => {
     const load = async () => {
       try {
+        const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" });
+        const sessionResult = await sessionResponse.json();
+        if (!sessionResponse.ok || !sessionResult.authenticated) {
+          window.location.href = "/login";
+          return;
+        }
         const response = await fetch("/api/chat", { method: "GET", cache: "no-store" });
         const result = await response.json();
         if (!response.ok || !result.success) {
@@ -113,6 +120,13 @@ export default function ChatPage() {
     setRecognitionReady(true);
   }, []);
 
+  const stopListening = () => {
+    if (recognitionRef.current && listening) {
+      recognitionRef.current.stop();
+      setListening(false);
+    }
+  };
+
   const placeholder = useMemo(
     () =>
       listening ? "Listening..." : "Ask a medical question or describe symptoms",
@@ -166,8 +180,16 @@ export default function ChatPage() {
     }
   };
 
+  const resizeInput = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, 44), 200)}px`;
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || sending) return;
+    stopListening();
     const text = input.trim();
     const userMessage: Message = {
       id: makeId(),
@@ -296,9 +318,9 @@ export default function ChatPage() {
                   }`}
                 >
                   <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
-                    <span className={message.role === "assistant" ? "text-slate-700" : "text-slate-100"}>
-                      {message.role === "assistant" ? "Assistant" : "You"}
-                    </span>
+                    {message.role === "assistant" ? (
+                      <span className="text-slate-700">Assistant</span>
+                    ) : null}
                     {message.severityLabel && message.severity !== undefined ? (
                       <>
                         <span className={`rounded-full px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold ring-1 ${badge(message.severityLabel)}`}>
@@ -351,17 +373,27 @@ export default function ChatPage() {
               >
                 {listening ? "●" : "🎤"}
               </button>
-              <input
+              <textarea
+                ref={inputRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  stopListening();
+                  setInput(e.target.value);
+                  resizeInput();
+                }}
+                disabled={listening}
+                rows={1}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     sendMessage();
                   }
                 }}
+                onInput={resizeInput}
                 placeholder={placeholder}
-                className="h-10 min-h-[2.5rem] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 sm:h-11"
+                className={`min-h-[2.75rem] flex-1 resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 sm:min-h-[3rem] ${
+                  listening ? "cursor-not-allowed opacity-70" : ""
+                }`}
               />
               <button
                 type="button"

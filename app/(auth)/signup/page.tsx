@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { TextField } from "@/components/auth/TextField";
 import { validateSignup } from "@/lib/validation";
@@ -33,6 +33,21 @@ export default function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<"idle" | "error" | "success">("idle");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const redirectIfAuthenticated = async () => {
+      try {
+        const response = await fetch("/api/auth/session", { cache: "no-store" });
+        const result = await response.json();
+        if (response.ok && result.authenticated) {
+          router.replace("/chat");
+        }
+      } catch (error) {
+        console.error("Session check failed", error);
+      }
+    };
+    redirectIfAuthenticated();
+  }, [router]);
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AuthCard } from "@/components/auth/AuthCard";
@@ -33,13 +32,26 @@ export default function LoginPage() {
   const [created, setCreated] = useState(false);
 
   useEffect(() => {
+    const redirectIfAuthenticated = async () => {
+      try {
+        const response = await fetch("/api/auth/session", { cache: "no-store" });
+        const result = await response.json();
+        if (response.ok && result.authenticated) {
+          router.replace("/chat");
+        }
+      } catch (error) {
+        console.error("Session check failed", error);
+      }
+    };
+    redirectIfAuthenticated();
+
     const params = new URLSearchParams(window.location.search);
     if (params.get("created") === "1") {
       setCreated(true);
       setMessage("Account created. Please sign in.");
       setStatus("success");
     }
-  }, []);
+  }, [router]);
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));

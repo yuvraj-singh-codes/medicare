@@ -1,8 +1,9 @@
 import { cookies } from "next/headers";
+import { NextRequest } from "next/server";
 import { getDb } from "@/lib/db";
 import crypto from "crypto";
 
-const SESSION_COOKIE = "mc_session";
+export const SESSION_COOKIE = "mc_session";
 
 type SessionDoc = {
   _id: string;
@@ -68,6 +69,14 @@ export const clearSessionCookie = async () => {
 export const getSessionFromCookies = async () => {
   const store = await cookies();
   const sessionId = store.get(SESSION_COOKIE)?.value;
+  if (!sessionId) return null;
+  const session = await getSession(sessionId);
+  if (!session) return null;
+  return { sessionId, userId: session.userId };
+};
+
+export const getSessionFromRequest = async (request: NextRequest) => {
+  const sessionId = request.cookies.get(SESSION_COOKIE)?.value;
   if (!sessionId) return null;
   const session = await getSession(sessionId);
   if (!session) return null;
