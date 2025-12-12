@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionFromCookies } from "@/lib/session";
 import { listMessages, saveMessages, deleteMessages } from "@/lib/chat-store";
 
-const model = "gpt-5";
+const model = "gpt-4o";
 const endpoint = "https://api.openai.com/v1/chat/completions";
 
 const systemPrompt = `
